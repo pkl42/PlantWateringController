@@ -13,51 +13,33 @@ It reads the analog input (A0), publishes the value via MQTT, and can enter **de
 
 ### 1. Download and Flash Tasmota
 
+**Note 1:** For flashing the wiring between D0 and RST needs to be interupted.  
+**Note 2:** Your browser does need to support Web Serial, use Google Chrome or Microsoft Edge.
+
 1. Go to [https://tasmota.github.io/install/](https://tasmota.github.io/install/).
 2. Connect your ESP8266 board via USB.
-3. Select **Tasmota (Generic)** as firmware type.
-4. Flash the firmware directly from the browser.
+3. Select **Tasmota Sensors** from your browser.
+4. Configure your Wi-Fi Access right now and click on "Visit Device"-Option.
+or  
+5. Connect to the Wi-Fi access point created by the ESP8266 (SSID `tasmota-XXXX`).
+6. Enter your Wi-Fi credentials and reconnect to your network.
 
-> **Tip:** For boards with analog sensors only, `tasmota-sensors.bin` is also a good choice.
+**Note 3:** After flashing the wiring between D0 and RST needs to be reconnected.  
+
+Additional Information: [https://tasmota.github.io/docs/Getting-Started/#initial-configuration](https://tasmota.github.io/docs/Getting-Started/#initial-configuration)
 
 ---
 
 ### 2. Initial Setup
 
-# ESP8266 Tasmota Moisture Sensor Firmware
+1. Access the Tasmota web interface (just the ip-address of the connected device, e.g. <http://192.168.0.186>).  
+   You can get it e.g. from your router in the list of connected devices.  
+   If you configured the Wi-Fi Access right during flashing process you can directly click on the  
+   "Visit Device"-Option.
+2. Go to **Configuration → Module → Module Type: Generic (18)**. Then click on Save to restart the device.
+3. Go to **Configuration → Module and now set the Module Parameters like on the screenshot.
 
-This folder contains the setup and configuration guide for using an **ESP8266-based soil moisture sensor** running **Tasmota** firmware within the Plant Watering Controller system.
-
----
-
-## 🌱 Overview
-
-This setup turns a low-cost ESP8266 board (e.g. Wemos D1 Mini) into a self-contained **soil moisture sensor**.  
-It reads the analog input (A0), publishes the value via **MQTT**, and can enter **deep sleep** to save power.
-
----
-
-## ⚙️ Installation Guide
-
-### 1. Download and Flash Tasmota
-
-1. Go to [https://tasmota.github.io/install/](https://tasmota.github.io/install/).
-2. Connect your ESP8266 board via USB.
-3. Select **Tasmota (Generic)** as the firmware type.
-4. Flash the firmware directly from your browser.
-
-> 💡 **Tip:** For boards with analog sensors only, `tasmota-sensors.bin` is also a good choice.
-
----
-
-### 2. Initial Setup
-
-1. Connect to the Wi-Fi access point created by the ESP8266 (SSID `tasmota-XXXX`).
-2. Enter your Wi-Fi credentials and reconnect to your network.
-3. Access the Tasmota web interface — usually available at: <http://tasmota.local>
-4. Go to **Configuration → Configure Module → Module Type: Generic (18)**.
-
-#### Example Template & Pin Configuration
+#### Template & Pin Configuration
 
 | Setting | Description |
 |----------|--------------|
@@ -66,8 +48,9 @@ It reads the analog input (A0), publishes the value via **MQTT**, and can enter 
 | Power1 | GPIO used to power the sensor (optional) |
 | Others | Leave unconfigured |
 
-![Generic Template Setting](tasmotaTemplatePinSetting.png)  
-![TelePeriod Configuration](tasmotaTelePeriod.png)
+  ![Generic Template Setting](tasmotaTemplatePinSetting.png)
+
+  ![TelePeriod Configuration](tasmotaTelePeriod.png)
 
 ---
 
@@ -77,11 +60,11 @@ Set your MQTT broker connection in **Configuration → Configure MQTT**:
 
 | Setting | Example |
 |----------|----------|
-| Host | `192.168.1.100` |
+| Host | `192.168.1.105` |
 | Port | `1883` |
-| Client ID | `MS_594908` |
-| Topic | `MS_594908` |
-| FullTopic | `tele/%topic%/` |
+| Topic | `MS_%06X` |
+
+![MQTT Configuration](tasmota_mqtt.png)
 
 ---
 
@@ -93,9 +76,13 @@ Enable rules:
 
 ~~~bash
 Rule1 1
+
+ruletimer1 3
 ~~~
 
-The rule handle ADC reading, MQTT publishing, and optionally entering deep sleep mode.
+The rule handle ADC reading, MQTT publishing, and optionally entering deep sleep mode.  
+The <device_topic> is also used in the plant controller in Nodered, and as it should not be modified,  
+mark the device with this <device_topic>.
 
 ---
 
@@ -125,22 +112,15 @@ Example telemetric message: [`tele_format_example.json`](./tele_format_example.j
 
 ---
 
-## Additional Notes
+Some mqtt commands i used during testing
 
-- `TelePeriod` defines how often telemetry data is sent (default 30s).
-- Rule timers manage when data is sent and when to enter deep sleep.
-- Power is turned on (`Power1 1`) on boot to power the sensor directly from GPIO.
-- The analog input (`A0`) is read and stored in `Var1`.
+~~~bash
+mosquitto_pub -h 192.168.0.105 -t cmnd/MS_594908/mem3 -m <x>    # 0 No DeepSleep >0 DeepSleep in seconds
 
----
-
-## Best Practices / Field Experience
-
-- **Power consumption:** Add a hardware switch or MOSFET to disconnect the sensor between reads to avoid corrosion.
-- **ADC calibration:** Calibrate ADC values in Node-RED or InfluxDB using a dry and fully wet reference.
-- **Sleep optimization:** For battery setups, use DeepSleepTime between 300–900 seconds depending on power source.
-- **Sensor type:** Capacitive sensors are recommended over resistive ones to reduce degradation.
-- **Firmware update:** Keep Tasmota up to date for MQTT stability and bug fixes.
+-r retained
+-n delete retained message
+mosquitto_pub -h 192.168.0.105 -t cmnd/MS_594908/mem3 -r -n 
+~~~
 
 ---
 
